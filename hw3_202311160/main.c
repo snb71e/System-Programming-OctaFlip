@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include "include/server.h"
 #include "include/client.h"
+#include "include/board.h"
 
 #define DEFAULT_PORT "8080"
 
@@ -16,6 +17,12 @@ static void print_usage(const char *progname) {
 }
 
 int main(int argc, char *argv[]) {
+
+    if (init_led_matrix(argc, argv) < 0) {
+        fprintf(stderr, "Failed to initialize LED Matrix. Exiting.\n");
+        return EXIT_FAILURE;
+    }
+
     if (argc < 2) {
         print_usage(argv[0]);
         return EXIT_FAILURE;
@@ -37,7 +44,9 @@ int main(int argc, char *argv[]) {
                     return EXIT_FAILURE;
             }
         }
-        return server_run(port);
+        int ret = server_run(port);
+        close_led_matrix();
+        return ret;
     }
     else if (strcmp(argv[1], "client") == 0) {
         char *ip = NULL;
@@ -66,10 +75,13 @@ int main(int argc, char *argv[]) {
             print_usage(argv[0]);
             return EXIT_FAILURE;
         }
-        return client_run(ip, port, username);
+        int ret = client_run(ip, port, username);
+        close_led_matrix();
+        return ret;
     }
     else {
         print_usage(argv[0]);
+        close_led_matrix();
         return EXIT_FAILURE;
     }
 }
