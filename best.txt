@@ -1,0 +1,136 @@
+// --- MCTS move generator ---
+#include <time.h>
+
+typedef struct {
+    int r1, c1, r2, c2;
+} Move;
+
+char get_opposite_color(char color) {
+    return (color == 'R') ? 'B' : 'R';
+}
+
+int find_all_valid_moves(char board[BOARD_SIZE][BOARD_SIZE], char player_color, Move moves[], int max_moves) {
+    int count = 0;
+    for (int r = 0; r < BOARD_SIZE; ++r) {
+        for (int c = 0; c < BOARD_SIZE; ++c) {
+            if (board[r][c] != player_color) continue;
+
+            // Clone
+            for (int d = 0; d < 8; ++d) {
+                int nr = r + directions[d][0];
+                int nc = c + directions[d][1];
+                if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc] == '.') {
+                    if (count < max_moves) {
+                        moves[count++] = (Move){r, c, nr, nc};
+                    }
+                }
+            }
+            // Jump
+            for (int d = 0; d < 8; ++d) {
+                int nr = r + 2 * directions[d][0];
+                int nc = c + 2 * directions[d][1];
+                if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc] == '.') {
+                    if (count < max_moves) {
+                        moves[count++] = (Move){r, c, nr, nc};
+                    }
+                }
+            }
+        }
+    }
+    return count;
+}
+
+void apply_move(char board[BOARD_SIZE][BOARD_SIZE], Move m, char player_color) {
+    int dr = abs(m.r2 - m.r1);
+    int dc = abs(m.c2 - m.c1);
+    if (dr <= 1 && dc <= 1) {
+        board[m.r2][m.c2] = player_color; // clone
+    } else {
+        board[m.r2][m.c2] = player_color; // jump
+        board[m.r1][m.c1] = '.'; // remove original
+    }
+    // Flip adjacent opponent
+    char opponent = get_opposite_color(player_color);
+    for (int d = 0; d < 8; ++d) {
+        int nr = m.r2 + directions[d][0];
+        int nc = m.c2 + directions[d][1];
+        if (nr >= 0 && nr < BOARD_SIZE && nc >= 0 && nc < BOARD_SIZE && board[nr][nc] == opponent) {
+            board[nr][nc] = player_color;
+        }
+    }
+}
+
+int count_player_score(char board[BOARD_SIZE][BOARD_SIZE], char player_color) {
+    int count = 0;
+    for (int r = 0; r < BOARD_SIZE; ++r)
+        for (int c = 0; c < BOARD_SIZE; ++c)
+            if (board[r][c] == player_color)
+                count++;
+    return count;
+}
+
+int simulate_random_game(char board[BOARD_SIZE][BOARD_SIZE], char current_color) {
+    char sim_board[BOARD_SIZE][BOARD_SIZE];
+    memcpy(sim_board, board, sizeof(char) * BOARD_SIZE * BOARD_SIZE);
+
+    char color = current_color;
+    int pass_count = 0;
+
+    Move moves[256];
+
+    while (1) {
+        int n = find_all_valid_moves(sim_board, color, moves, 256);
+        if (n == 0) {
+            pass_count++;
+            if (pass_count == 2) break;
+        } else {
+            pass_count = 0;
+            Move m = moves[rand() % n];
+            apply_move(sim_board, m, color);
+        }
+        color = get_opposite_color(color);
+    }
+
+    int score_R = count_player_score(sim_board, 'R');
+    int score_B = count_player_score(sim_board, 'B');
+
+    return (score_R > score_B) ? 'R' : (score_B > score_R ? 'B' : 'D');
+}
+
+int generate_move(char board[BOARD_SIZE][BOARD_SIZE], char player_color,
+                       int *out_r1, int *out_c1, int *out_r2, int *out_c2) {
+    clock_t start = clock();
+    double time_limit = 2.8;
+
+    Move all_moves[256];
+    int num_moves = find_all_valid_moves(board, player_color, all_moves, 256);
+    if (num_moves == 0) return 0;
+
+    int best_sim = -1;
+    Move best_move = all_moves[0];
+
+    for (int i = 0; i < num_moves; ++i) {
+        int wins = 0, sims = 0;
+
+        while ((double)(clock() - start) / CLOCKS_PER_SEC < time_limit && sims < 100) {
+            char board_copy[BOARD_SIZE][BOARD_SIZE];
+            memcpy(board_copy, board, sizeof(char) * BOARD_SIZE * BOARD_SIZE);
+            apply_move(board_copy, all_moves[i], player_color);
+
+            int winner = simulate_random_game(board_copy, get_opposite_color(player_color));
+            if (winner == player_color) wins++;
+            sims++;
+        }
+
+        if (wins > best_sim) {
+            best_sim = wins;
+            best_move = all_moves[i];
+        }
+    }
+
+    *out_r1 = best_move.r1;
+    *out_c1 = best_move.c1;
+    *out_r2 = best_move.r2;
+    *out_c2 = best_move.c2;
+    return 1;
+}
