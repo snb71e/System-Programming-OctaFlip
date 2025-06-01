@@ -22,28 +22,27 @@ int main(int argc, char *argv[]) {
     if (strcmp(argv[1], "server") == 0) {
         // ---- SERVER 모드 ----
         int port = 8080;  // 기본값, 실제로는 인자 파싱 필요
-	    char port_str[16];
+	char port_str[16];
         for (int i = 2; i < argc; ++i) {
             if (strcmp(argv[i], "-p") == 0 && i + 1 < argc)
                 port = atoi(argv[++i]);
         }
-    	snprintf(port_str, sizeof(port_str), "%d", port); 
+	snprintf(port_str, sizeof(port_str), "%d", port); 
 
-        /*
+        // ** server에서만 LED 초기화/해제 **
         if (init_led_matrix(&argc, &argv) < 0) {
             fprintf(stderr, "Failed to initialize LED Matrix.\n");
             return EXIT_FAILURE;
         }
-        */
         int ret = server_run(port_str);
-        //close_led_matrix();
+        close_led_matrix();
         return ret;
 
     } else if (strcmp(argv[1], "client") == 0) {
         // ---- CLIENT 모드 ----
         char *ip = NULL;
         int port = 8080;
-	    char port_str[16];
+	char port_str[16];
         char *username = NULL;
 
         for (int i = 2; i < argc; ++i) {
@@ -54,19 +53,14 @@ int main(int argc, char *argv[]) {
             else if (strcmp(argv[i], "-u") == 0 && i + 1 < argc)
                 username = argv[++i];
         }
-    	snprintf(port_str, sizeof(port_str),"%d", port);
+	snprintf(port_str, sizeof(port_str),"%d", port);
         if (!ip || !username) {
             print_usage(argv[0]);
             return EXIT_FAILURE;
         }
-        if (init_led_matrix(&argc, &argv) < 0) {
-            fprintf(stderr, "Failed to initialize LED Matrix.\n");
-            return EXIT_FAILURE;
-        }
 
-        int ret = client_run(ip, port_str, username);
-        close_led_matrix();
-        return ret;
+        // ** client에서는 LED 관련 함수 호출 절대 금지 **
+        return client_run(ip, port_str, username);
 
     } else {
         print_usage(argv[0]);
