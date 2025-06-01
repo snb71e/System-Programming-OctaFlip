@@ -1,6 +1,6 @@
 // test_local_led.c
 
-#include "board.h"
+#include "../include/board.h"
 #include <stdio.h>
 #include <stdlib.h>
 
